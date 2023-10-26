@@ -13,7 +13,6 @@ def statistic(w, b, xin, yin, xout, yout):
     nin = len(xin)
     nout = len(xout)
     for j in range(nin):
-        temp=(np.dot(w, xin[j].T) + b) * yin[j]
         if (np.dot(w, xin[j].T) + b) * yin[j] <= 0:
             wrong_cases_train += 1
     wrong_rate_train = wrong_cases_train / nin
@@ -29,7 +28,7 @@ def statistic(w, b, xin, yin, xout, yout):
     return 0
 
 
-def statistic_kernel(sv_indexes, alpha, b, xin, yin, xout, yout):
+def statistic_kernel(sv_indexes, alpha, b, xin, yin, xout, yout, method):
     wrong_cases_train = 0
     wrong_cases_test = 0
     nin = len(xin)
@@ -38,7 +37,8 @@ def statistic_kernel(sv_indexes, alpha, b, xin, yin, xout, yout):
     for j in range(nin):
         temp = 0
         for k in range(n_sv):
-            temp = temp + alpha[sv_indexes[k]] * yin[sv_indexes[k]] * quartic_kernel(xin[sv_indexes[k]], xin[j])
+            temp = temp + alpha[sv_indexes[k]] * yin[sv_indexes[k]] * kernel_filling(xin[sv_indexes[k]], xin[j],
+                                                                                     method)
         if (temp + b) * yin[j] <= 0:
             wrong_cases_train += 1
     wrong_rate_train = wrong_cases_train / nin
@@ -46,7 +46,8 @@ def statistic_kernel(sv_indexes, alpha, b, xin, yin, xout, yout):
     for j in range(nout):
         temp = 0
         for k in range(n_sv):
-            temp = temp + alpha[sv_indexes[k]] * yin[sv_indexes[k]] * quartic_kernel(xin[sv_indexes[k]], xout[j])
+            temp = temp + alpha[sv_indexes[k]] * yin[sv_indexes[k]] * kernel_filling(xin[sv_indexes[k]], xout[j],
+                                                                                     method)
         if (temp + b) * yout[j] <= 0:
             wrong_cases_test += 1
     wrong_rate_test = wrong_cases_test / nout
@@ -111,16 +112,7 @@ def dual_svm(xin, yin):
     for j in range(nx):
         for k in range(nx):
             q[j][k] = y[j] * y[k] * np.dot(x[j], x[k].T)
-    '''p = -1 * np.ones([nx, 1])
-    a = np.eye(nx)
-    c = np.zeros([nx, 1])
-    a = -1 * a
-    c = -1 * c
-    r = y.T[0]
-    v = np.zeros(1)
 
-    alpha = solve_qp(q, p, G=a, h=c, A=r, b=v, lb=None, ub=None, solver="scs")
-    alpha[alpha < 0.0005] = 0'''
     alpha, sv_indexes = find_sv(q, nx, y)
     w = np.zeros(dx)
     b = 0
@@ -137,38 +129,34 @@ def dual_svm(xin, yin):
 """----------------------Kernel-SVM----------------------"""
 
 
-def quartic_kernel(x1, x2):
-    zeta = 1
-    gamma = 1
-    return (zeta + gamma * np.dot(x1, x2.T)) ** 4
-
-
-def gaussian_kernel(x1, x2):
-    gamma = 1
-    norm = np.linalg.norm(x1 - x2)
-    return math.exp(-gamma * norm ** 2)
+def kernel_filling(x1,x2,method):
+    match method:
+        case 'quartic_polynomial':
+            zeta = 1
+            gamma = 1
+            return (zeta + gamma * np.dot(x1, x2.T)) ** 4
+        case 'gaussian':
+            gamma = 1
+            norm = np.linalg.norm(x1 - x2)
+            return math.exp(-gamma * norm ** 2)
 
 
 def kernel_svm(xin, yin, method):
     x = np.copy(xin)
     y = np.copy(yin)
 
+    # 归一化
     '''min = np.min(x, axis=0)
     max = np.max(x, axis=0)
     diff = max - min
     x[:, 0] = (x[:, 0] - min[0]) / diff[0]
     x[:, 1] = (x[:, 1] - min[1]) / diff[1]'''
+
     nx, dx = np.shape(x)
     q = np.zeros([nx, nx])
-    match method:
-        case 'quartic_polynomial':
-            for j in range(nx):
-                for k in range(nx):
-                    q[j][k] = y[j] * y[k] * quartic_kernel(x[j], x[k])
-        case 'gaussian':
-            for j in range(nx):
-                for k in range(nx):
-                    q[j][k] = y[j] * y[k] * gaussian_kernel(x[j], x[k])
+    for j in range(nx):
+        for k in range(nx):
+            q[j][k] = y[j] * y[k] * kernel_filling(x[j], x[k], method)
     alpha, sv_indexes = find_sv(q, nx, y)
     n_sv = np.shape(sv_indexes)[0]
 
@@ -176,7 +164,7 @@ def kernel_svm(xin, yin, method):
     for j in range(n_sv):
         temp = 0
         for k in range(n_sv):
-            temp = temp + alpha[sv_indexes[k]] * y[sv_indexes[k]] * quartic_kernel(x[sv_indexes[k]], x[sv_indexes[j]])
+            temp = temp + alpha[sv_indexes[k]] * y[sv_indexes[k]] * kernel_filling(x[sv_indexes[k]], x[sv_indexes[j]], method)
         b = b + y[sv_indexes[j]] - temp
     b = sum(b) / n_sv
     w = 0
@@ -240,19 +228,22 @@ time_dual_svm = time_end - time_start
 time_start = time.time()
 sv_indexes_quartic, alpha_quartic, b_quartic = kernel_svm(x_train, y_train, method='quartic_polynomial')
 time_end = time.time()
-time_4kernel_svm = time_end - time_start
+time_quartic_svm = time_end - time_start
+
+time_start = time.time()
+sv_indexes_gaussian, alpha_gaussian, b_gaussian = kernel_svm(x_train, y_train, method='gaussian')
+time_end = time.time()
+time_gaussian_svm = time_end - time_start
 
 x_min = min(min(x1[:, 0]), min(x2[:, 0]))
 x_max = max(max(x1[:, 0]), max(x2[:, 0]))
 y_min = min(min(x1[:, 1]), min(x2[:, 1]))
 y_max = max(max(x1[:, 1]), max(x2[:, 1]))
-x_co = np.linspace(x_min - 1, x_max + 1)
 xx = np.arange(x_min - 1, x_max + 1, 0.05)
 yy = np.arange(y_min - 1, y_max + 1, 0.05)
 A, B = np.meshgrid(xx, yy)
 height, width = np.shape(A)
 
-statistic_kernel(sv_indexes_quartic, alpha_quartic, b_quartic, x_train, y_train, x_test, y_test)
 
 print("--------------Primal-SVM结果统计--------------")
 print("w=", w)
@@ -260,28 +251,50 @@ print("b=", b)
 statistic(w, b, x_train, y_train, x_test, y_test)
 print("算法运行时间=", time_primal_svm, "s")
 
-plt.figure("梯度下降算法")
-str2 = "Primal-SVM, x1~N(%s,%s), x2~N(%s,%s)" % (u1, s1, u2, s2)
-plt.title(str2)
+print("--------------Dual-SVM结果统计--------------")
+print("w=", w_dual_svm)
+print("b=", b_dual_svm)
+statistic(w_dual_svm, b_dual_svm, x_train, y_train, x_test, y_test)
+print("算法运行时间=", time_dual_svm, "s")
+
+print("--------------Kernel-SVM(四次多项式)结果统计--------------")
+statistic_kernel(sv_indexes_quartic, alpha_quartic, b_quartic, x_train, y_train, x_test, y_test, 'quartic_polynomial')
+print("算法运行时间=", time_quartic_svm, "s")
+
+print("--------------Kernel-SVM(高斯核函数)结果统计--------------")
+statistic_kernel(sv_indexes_gaussian, alpha_gaussian, b_gaussian, x_train, y_train, x_test, y_test, 'gaussian')
+print("算法运行时间=", time_gaussian_svm, "s")
+
+print("----------------绘图中---------------")
 
 plt.scatter(x1[:, 0], x1[:, 1], c='r')
 plt.scatter(x2[:, 0], x2[:, 1], c='b')
-z_gd = -(w[0] / w[1]) * x_co - b / w[1]
-plt.plot(x_co, z_gd, c='g')
-plt.axline((0, -b / w[1]), slope=-w[0] / w[1], c='g', label='Primal-SVM')
+plt.axline((0, -b / w[1]), slope=-w[0] / w[1], c='k', label='Primal-SVM')
 
-plt.axline((0, -b_dual_svm / w_dual_svm[1]), slope=-w_dual_svm[0] / w_dual_svm[1], c='y', label='Dual-SVM')
+plt.axline((0, -b_dual_svm / w_dual_svm[1]), slope=-w_dual_svm[0] / w_dual_svm[1], c='g', label='Dual-SVM')
+
 gate_quartic = np.zeros([height, width])
+gate_gaussian = np.zeros([height, width])
 for j in range(height):
     for k in range(width):
-        temp = 0
+        temp1 = 0
+        temp2 = 0
         for l in sv_indexes_quartic:
-            temp = temp + alpha_quartic[l] * y_train[l] * quartic_kernel(x_train[l], np.array([A[j][k], B[j][k]]))
-        gate_quartic[j][k] = temp + b_quartic
+            temp1 = temp1 + alpha_quartic[l] * y_train[l] * kernel_filling(x_train[l], np.array([A[j][k], B[j][k]]),
+                                                                           'quartic_polynomial')
+        for l in sv_indexes_gaussian:
+            temp2 = temp2 + alpha_gaussian[l] * y_train[l] * kernel_filling(x_train[l], np.array([A[j][k], B[j][k]]),
+                                                                           'gaussian')
+        gate_quartic[j][k] = temp1 + b_quartic
+        gate_gaussian[j][k] = temp2 + b_gaussian
 
-plt.contour(A, B, gate_quartic, levels=[0], colors='black', label='Kernel-SVM(quartic)')
+
+plt.contour(A, B, gate_quartic, levels=[0], colors='c')
+plt.contour(A, B, gate_gaussian, levels=[0], colors='m')
+
 plt.xlim(x_min - 1, x_max + 1)
 plt.ylim(y_min - 1, y_max + 1)
 plt.legend()
 
 plt.show()
+print("--------------绘图输出完毕--------------")
