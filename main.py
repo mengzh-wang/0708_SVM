@@ -124,7 +124,7 @@ def dual_svm(xin, yin):
         for k in range(nx):
             q[j][k] = y[j] * y[k] * np.dot(x[j], x[k].T)
 
-    alpha, sv_indexes = find_sv(q, nx, y, threshold=1e-3)
+    alpha, sv_indexes = find_sv(q, nx, y, threshold=1e-2)
     w = np.zeros(dx)
     b = 0
 
@@ -144,7 +144,7 @@ def kernel_filling(x1, x2, method):
     match method:
         case 'quartic_polynomial':
             zeta = 1
-            gamma = 0.7
+            gamma = 1
             return (zeta + gamma * np.dot(x1, x2.T)) ** 4
         case 'gaussian':
             gamma = 0.5
@@ -172,9 +172,9 @@ def kernel_svm(xin, yin, method):
     sv_indexes = []
     match method:
         case 'quartic_polynomial':
-            alpha, sv_indexes = find_sv(q, nx, y, threshold=1e-5)
+            alpha, sv_indexes = find_sv(q, nx, y, threshold=0.08)
         case 'gaussian':
-            alpha, sv_indexes = find_sv(q, nx, y, threshold=0.0005)
+            alpha, sv_indexes = find_sv(q, nx, y, threshold=0.1)
 
     n_sv = np.shape(sv_indexes)[0]
 
@@ -289,30 +289,33 @@ def normalize(data, data_range):
 
 
 # x_train, y_train, x_test, y_test, data_range = data_generate()
-# data_save(x_train, y_train, x_test, y_test, prefix='3003')
-'''x_train, y_train, x_test, y_test, data_range = data_read('3003_train.csv','3003_test.csv')
-x_min, x_max, y_min, y_max = data_range
-xx = np.arange(x_min - 1, x_max + 1, 0.05)
-yy = np.arange(y_min - 1, y_max + 1, 0.05)'''
 
+# ---------读取已有数据---------
+x_train, y_train, x_test, y_test, data_range = data_read('3003_train.csv','3003_test.csv')
+x_min, x_max, y_min, y_max = data_range
+data_save(x_train, y_train, x_test, y_test, prefix='3003')
+
+
+
+'''# ---------钓鱼岛归属问题---------
 x_train, y_train, x_test, y_test, data_range = data_read('cities_seaside.csv', 'null')
 x_train = normalize(x_train, data_range)
 x_min, x_max, y_min, y_max = [0, 1, 0, 1]
-diaoyudao=[123.473333,25.743333]
-diaoyudao[0]=(diaoyudao[0]-data_range[0])/(data_range[1]-data_range[0])
-diaoyudao[1]=(diaoyudao[1]-data_range[2])/(data_range[3]-data_range[2])
+diaoyudao = [123.473333, 25.743333]
+diaoyudao[0] = (diaoyudao[0] - data_range[0]) / (data_range[1] - data_range[0])
+diaoyudao[1] = (diaoyudao[1] - data_range[2]) / (data_range[3] - data_range[2])'''
 
-x_plot_range=(x_min - 0.2, x_max + 0.2)
-y_plot_range=(y_min - 0.2, y_max + 0.2)
-xx = np.arange(x_min - 0.2, x_max + 0.2, 0.01)
-yy = np.arange(y_min - 0.2, y_max + 0.2, 0.01)
+x_plot_range = (x_min - 0.2, x_max + 0.2)
+y_plot_range = (y_min - 0.2, y_max + 0.2)
+xx = np.arange(x_min - 0.2, x_max + 0.2, 0.1)
+yy = np.arange(y_min - 0.2, y_max + 0.2, 0.1)
 A, B = np.meshgrid(xx, yy)
 
 height, width = np.shape(A)
 
 """----------------------代码运行----------------------"""
 
-time_start = time.time()
+'''time_start = time.time()
 b, w, sv_indexes_primal = primal_svm(x_train, y_train)
 time_end = time.time()
 time_primal_svm = time_end - time_start
@@ -320,7 +323,7 @@ time_primal_svm = time_end - time_start
 time_start = time.time()
 b_dual_svm, w_dual_svm, sv_indexes_dual = dual_svm(x_train, y_train)
 time_end = time.time()
-time_dual_svm = time_end - time_start
+time_dual_svm = time_end - time_start'''
 
 time_start = time.time()
 sv_indexes_quartic, alpha_quartic, b_quartic = kernel_svm(x_train, y_train, method='quartic_polynomial')
@@ -332,7 +335,7 @@ sv_indexes_gaussian, alpha_gaussian, b_gaussian = kernel_svm(x_train, y_train, m
 time_end = time.time()
 time_gaussian_svm = time_end - time_start
 
-print("--------------Primal-SVM结果统计--------------")
+'''print("--------------Primal-SVM结果统计--------------")
 print("w=", w)
 print("b=", b)
 # statistic(w, b, x_train, y_train, x_test, y_test)
@@ -342,7 +345,7 @@ print("--------------Dual-SVM结果统计--------------")
 print("w=", w_dual_svm)
 print("b=", b_dual_svm)
 # statistic(w_dual_svm, b_dual_svm, x_train, y_train, x_test, y_test)
-print("算法运行时间=", time_dual_svm, "s")
+print("算法运行时间=", time_dual_svm, "s")'''
 
 print("--------------Quartic Polynomial SVM结果统计--------------")
 # statistic_kernel(sv_indexes_quartic, alpha_quartic, b_quartic, x_train, y_train, x_test, y_test, 'quartic_polynomial')
@@ -374,10 +377,10 @@ def plot_data(x_train, y_train, x_test, y_test, sv_indexes):
             plt.scatter(x_test[j, 0], x_test[j, 1], c='orange')
         else:
             plt.scatter(x_test[j, 0], x_test[j, 1], c='dodgerblue')
-    plt.scatter(diaoyudao[0],diaoyudao[1],s=50,c='r',marker='*')
+    # plt.scatter(diaoyudao[0], diaoyudao[1], s=50, c='r', marker='*')
 
 
-plt.figure()
+'''plt.figure()
 plt.xlim(x_plot_range)
 plt.ylim(y_plot_range)
 plot_data(x_train, y_train, x_test, y_test, sv_indexes_primal)
@@ -390,7 +393,7 @@ plt.ylim(y_plot_range)
 plot_data(x_train, y_train, x_test, y_test, sv_indexes_dual)
 plt.axline((0, -b_dual_svm / w_dual_svm[1]), slope=-w_dual_svm[0] / w_dual_svm[1], c='g', label='Dual SVM')
 plt.legend(loc='upper left')
-plt.show()
+plt.show()'''
 
 gate_quartic = np.zeros([height, width])
 gate_gaussian = np.zeros([height, width])
