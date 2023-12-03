@@ -81,15 +81,6 @@ def primal_svm(xin, yin):
     b = solution[0]
     w = solution[1:3]
     sv_indexes = []  # 不统计支撑向量
-    '''
-    dist = np.zeros([nx, 1])
-    for j in range(nx):
-        dist[j][0] = y[j] * np.dot(w, x[j].T) / np.linalg.norm(w)
-    dist_min = np.min(dist)
-    for k in range(nx):
-        if dist[k][0] <= dist_min + 0.4:
-            sv_indexes.append(k)
-    sv_indexes = np.array(sv_indexes)'''
 
     return b, w, sv_indexes
 
@@ -147,7 +138,7 @@ def kernel_filling(x1, x2, method):
             gamma = 1
             return (zeta + gamma * np.dot(x1, x2.T)) ** 4
         case 'gaussian':
-            gamma = 0.5
+            gamma = 0.1
             norm = np.linalg.norm(x1 - x2)
             return math.exp(-gamma * norm ** 2)
 
@@ -172,9 +163,9 @@ def kernel_svm(xin, yin, method):
     sv_indexes = []
     match method:
         case 'quartic_polynomial':
-            alpha, sv_indexes = find_sv(q, nx, y, threshold=0.08)
+            alpha, sv_indexes = find_sv(q, nx, y, threshold=1e-5)
         case 'gaussian':
-            alpha, sv_indexes = find_sv(q, nx, y, threshold=0.1)
+            alpha, sv_indexes = find_sv(q, nx, y, threshold=1e-5)
 
     n_sv = np.shape(sv_indexes)[0]
 
@@ -199,9 +190,9 @@ def kernel_svm(xin, yin, method):
 
 def data_generate():
     # 数据分布与规模
-    u1 = [3, 0]
+    u1 = [-5, 0]
     s1 = [[1, 0], [0, 1]]
-    u2 = [0, 3]
+    u2 = [0, 5]
     s2 = [[1, 0], [0, 1]]
     n = 200
     train_rate = 0.8
@@ -288,14 +279,12 @@ def normalize(data, data_range):
     return norm
 
 
-# x_train, y_train, x_test, y_test, data_range = data_generate()
+'''x_train, y_train, x_test, y_test, data_range = data_generate()
+data_save(x_train, y_train, x_test, y_test, prefix='n5005')'''
 
 # ---------读取已有数据---------
-x_train, y_train, x_test, y_test, data_range = data_read('3003_train.csv','3003_test.csv')
+x_train, y_train, x_test, y_test, data_range = data_read('n5005_train.csv', 'n5005_test.csv')
 x_min, x_max, y_min, y_max = data_range
-data_save(x_train, y_train, x_test, y_test, prefix='3003')
-
-
 
 '''# ---------钓鱼岛归属问题---------
 x_train, y_train, x_test, y_test, data_range = data_read('cities_seaside.csv', 'null')
@@ -315,7 +304,7 @@ height, width = np.shape(A)
 
 """----------------------代码运行----------------------"""
 
-'''time_start = time.time()
+time_start = time.time()
 b, w, sv_indexes_primal = primal_svm(x_train, y_train)
 time_end = time.time()
 time_primal_svm = time_end - time_start
@@ -323,7 +312,7 @@ time_primal_svm = time_end - time_start
 time_start = time.time()
 b_dual_svm, w_dual_svm, sv_indexes_dual = dual_svm(x_train, y_train)
 time_end = time.time()
-time_dual_svm = time_end - time_start'''
+time_dual_svm = time_end - time_start
 
 time_start = time.time()
 sv_indexes_quartic, alpha_quartic, b_quartic = kernel_svm(x_train, y_train, method='quartic_polynomial')
@@ -335,24 +324,24 @@ sv_indexes_gaussian, alpha_gaussian, b_gaussian = kernel_svm(x_train, y_train, m
 time_end = time.time()
 time_gaussian_svm = time_end - time_start
 
-'''print("--------------Primal-SVM结果统计--------------")
+print("--------------Primal-SVM结果统计--------------")
 print("w=", w)
 print("b=", b)
-# statistic(w, b, x_train, y_train, x_test, y_test)
+statistic(w, b, x_train, y_train, x_test, y_test)
 print("算法运行时间=", time_primal_svm, "s")
 
 print("--------------Dual-SVM结果统计--------------")
 print("w=", w_dual_svm)
 print("b=", b_dual_svm)
-# statistic(w_dual_svm, b_dual_svm, x_train, y_train, x_test, y_test)
-print("算法运行时间=", time_dual_svm, "s")'''
+statistic(w_dual_svm, b_dual_svm, x_train, y_train, x_test, y_test)
+print("算法运行时间=", time_dual_svm, "s")
 
 print("--------------Quartic Polynomial SVM结果统计--------------")
-# statistic_kernel(sv_indexes_quartic, alpha_quartic, b_quartic, x_train, y_train, x_test, y_test, 'quartic_polynomial')
+statistic_kernel(sv_indexes_quartic, alpha_quartic, b_quartic, x_train, y_train, x_test, y_test, 'quartic_polynomial')
 print("算法运行时间=", time_quartic_svm, "s")
 
 print("--------------Gaussian SVM结果统计--------------")
-# statistic_kernel(sv_indexes_gaussian, alpha_gaussian, b_gaussian, x_train, y_train, x_test, y_test, 'gaussian')
+statistic_kernel(sv_indexes_gaussian, alpha_gaussian, b_gaussian, x_train, y_train, x_test, y_test, 'gaussian')
 print("算法运行时间=", time_gaussian_svm, "s")
 
 print("----------------绘图中---------------")
@@ -380,7 +369,7 @@ def plot_data(x_train, y_train, x_test, y_test, sv_indexes):
     # plt.scatter(diaoyudao[0], diaoyudao[1], s=50, c='r', marker='*')
 
 
-'''plt.figure()
+plt.figure()
 plt.xlim(x_plot_range)
 plt.ylim(y_plot_range)
 plot_data(x_train, y_train, x_test, y_test, sv_indexes_primal)
@@ -393,7 +382,7 @@ plt.ylim(y_plot_range)
 plot_data(x_train, y_train, x_test, y_test, sv_indexes_dual)
 plt.axline((0, -b_dual_svm / w_dual_svm[1]), slope=-w_dual_svm[0] / w_dual_svm[1], c='g', label='Dual SVM')
 plt.legend(loc='upper left')
-plt.show()'''
+plt.show()
 
 gate_quartic = np.zeros([height, width])
 gate_gaussian = np.zeros([height, width])
@@ -427,4 +416,5 @@ line2 = plt.Line2D([0], [0], color='m')
 plt.legend(handles=[line2], labels=['Gaussian SVM'], loc='upper left')
 
 plt.show()
+
 print("--------------绘图输出完毕--------------")
